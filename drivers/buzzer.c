@@ -30,7 +30,6 @@
 #define PITCH(note) (note & 0x000F)
 
 uint16_t base_notes[13] = {
-	0,    /* 0: P  */
 	2383, /* 1: A  */
 	2249, /* 2: A# */
 	2123, /* 3: B  */
@@ -54,7 +53,7 @@ inline void buzzer_init(void)
 	TA1CCTL0 = OUTMOD_4;
 
 	/* Play "welcome" chord: A major */
-	note welcome[4] = {0x1901, 0x1904, 0x1908, 0x000F};
+	note welcome[4] = {0x1901, 0x1904, 0x1908, 0x0000};
 	buzzer_play(welcome);
 }
 
@@ -78,8 +77,8 @@ void buzzer_play(note *notes)
 	P2SEL |= BIT7;
 
 	/* 0x000F is the "stop bit" */
-	while (PITCH(*notes) != 0x000F) {
-		if (PITCH(*notes) == 0) {
+	while (PITCH(*notes) != 0) {
+		if (PITCH(*notes) == 0xF) {
 			/* Stop the timer! We are playing a rest */
 			TA1CTL &= ~MC_3;
 		} else {

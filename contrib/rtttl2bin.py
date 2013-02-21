@@ -55,7 +55,7 @@ def generate_binary_ringtone(ringtone):
     melody = ringtone["melody"]
     for note in melody:
         melody_real.append(hex(generate_binary_note(note, ringtone["whole"])))
-    melody_real.append("0x000F")
+    melody_real.append("0x0000")
     return "note %s[%d] = {%s};" % (ringtone["title"], len(ringtone["melody"]) + 1, ', '.join(melody_real))
 
 
