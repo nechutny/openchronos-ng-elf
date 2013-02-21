@@ -41,7 +41,7 @@ def parse_ringtone(ringtone):
     default_duration = int(match.group(2))
     default_octave = int(match.group(3))
     bpm = int(match.group(4))
-    whole = (60 * 1000 / bpm) * 4
+    whole = (60 * 1000 // bpm) * 4
     notes = [parse_note(note, default_duration, default_octave) for note in match.group(5).split(',')]
     return {"title": match.group(1), "melody": notes, "whole": whole}
 
@@ -63,7 +63,7 @@ def generate_binary_note(note, whole_note):
     """
         This method converts a tuple note as parsed by parse_note to the binary representation.
     """
-    duration = whole_note / note[0]
+    duration = whole_note // note[0]
     if duration > 1023:
         raise Exception("note duration too long")
     tone = notes_translate.index(note[1])
