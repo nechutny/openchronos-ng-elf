@@ -69,8 +69,8 @@ def generate_binary_note(note, whole_note):
     tone = notes_translate.index(note[1])
     octave = note[2] - 4
     return (duration << 6) | (octave << 2) | tone
-    
-    
+
+
 if __name__ == '__main__':
     import sys
     print(generate_binary_ringtone(parse_ringtone(sys.argv[1])))
