@@ -39,4 +39,30 @@ void buzzer_init(void);
  */
 void buzzer_play(note *notes);
 
+/*!
+ * \brief A pointer to the song the buzzer is currently playing.
+ * \details If there is no song playing, the value will be null.
+ */
+note *buzzer_buffer;
+
+/*!
+ * \brief A counter to keep the index of the current playing note.
+ */
+uint8_t buzzer_counter;
+
+/*!
+ * \brief This is 1 if buzzer is finished playing.
+ * \details This is used to signal the messagebus for buzzer finish events.
+ */
+uint8_t buzzer_finished;
+
+/*!
+ * \brief This macro returns true if the buzzer is actually playing a note.
+ * \details This returns true if the buzzer is playing something and the note
+ * it is currently playing is not a rest, in other words, when the buzzer does
+ * not use SMLCK.
+ */
+#define BUZZER_PLAYING (buzzer_buffer != NULL && \
+			! (*(buzzer_buffer + buzzer_counter) & 0xF))
+
 #endif /*BUZZER_H_*/

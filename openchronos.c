@@ -182,6 +182,12 @@ void check_events(void)
 		as_last_interrupt = 0;
 	}
 
+	/* drivers/buzzer */
+	if(buzzer_finished) {
+		msg |= SYS_MSG_BUZ_FINISHED;
+		buzzer_finished = 0;
+	}
+
 #ifdef CONFIG_BATTERY_MONITOR
 	/* drivers/battery */
 	if ((msg & SYS_MSG_RTC_MINUTE) == SYS_MSG_RTC_MINUTE) {
@@ -533,6 +539,21 @@ void init_application(void)
 #endif
 }
 
+inline void sleep_and_service_wd()
+{
+	/* Go to appropriate LPM, wait for interrupts */
+	if(BUZZER_PLAYING)
+		_BIS_SR(LPM1_bits + GIE);
+	else
+		_BIS_SR(LPM3_bits + GIE);
+	__no_operation();
+
+	/* service watchdog on wakeup */
+#ifdef USE_WATCHDOG
+	// Service watchdog (reset counter)
+	WDTCTL = (WDTCTL & 0xff) | WDTPW | WDTCNTCL;
+#endif
+}
 
 /***************************************************************************
  ************************ ENTRYPOINT AND MAIN LOOP *************************
@@ -555,15 +576,8 @@ int main(void)
 
 	/* main loop */
 	while (1) {
-		/* Go to LPM3, wait for interrupts */
-		_BIS_SR(LPM3_bits + GIE);
-		__no_operation();
-
-		/* service watchdog on wakeup */
-		#ifdef USE_WATCHDOG
-			// Service watchdog (reset counter)
-			WDTCTL = (WDTCTL & 0xff) | WDTPW | WDTCNTCL;
-		#endif
+		/* Go to the appropriate level of LPM and service watchdog */
+		sleep_and_service_wd();
 
 		/* check if any driver has events pending */
 		check_events();
