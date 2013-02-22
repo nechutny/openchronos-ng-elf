@@ -126,11 +126,6 @@ void buzzer_play(note *notes)
 	if(buzzer_buffer != NULL)
 		buzzer_stop();
 
-	/* if the first note is the end note don't even bother starting the
-	 * timers */
-	if (*notes == 0)
-		return;
-
 	uint8_t len = 0;
 	while (notes[len] != 0) len++;
 
