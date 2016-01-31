@@ -132,7 +132,7 @@ void sys_messagebus_register(void (*callback)(enum sys_message),
 	struct sys_messagebus **p = &messagebus;
 
 	while (*p) {
-		p = &(*p)->next;
+		p = &(*p)->next; // Set p to address of next (not what next points to but the address of the next pointer)
 	}
 
 	*p = malloc(sizeof(struct sys_messagebus));
@@ -147,16 +147,29 @@ void sys_messagebus_unregister(void (*callback)(enum sys_message))
 
 	while (p) {
 		if (p->fn == callback) {
-			if (!pp)
+			if (!pp) { // If 1. element
+				// Remove first element by pointing to the next
 				messagebus = p->next;
-			else
-				pp->next = p->next;
-
-			free(p);
+				// Free element
+				free(p);
+				// Set current pointer to point to new first element
+				p = messagebus;
+				// Keep pp the same (NULL)
+			} else { // If 2. or later element
+				// Remove element by pointing previous to the next
+				pp->next = p->next; 
+				// Free element
+				free(p);
+				// Set current pointer to point to next element
+				p = pp->next;
+				// Keep pp the same
+			}
+		} else {
+			// Set pp (previous pointer) to current element
+			pp = p;
+			// Set p (current pointer) to next element
+			p = p->next;
 		}
-
-		pp = p;
-		p = p->next;
 	}
 }
 
@@ -220,14 +233,14 @@ void check_events(void)
 static void editmode_handler(void)
 {
 	/* STAR button exits edit mode */
-	if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_STAR)) {
+	if (ports_button_pressed(PORTS_BTN_STAR, 0)) {
 		/* deselect item */
 		menu_editmode.items[menu_editmode.pos].deselect();
 
 		menu_editmode.complete_fn();
 		menu_editmode.enabled = 0;
 
-	} else if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_NUM)) {
+	} else if (ports_button_pressed(PORTS_BTN_NUM, 0)) {
 		/* deselect current item */
 		menu_editmode.items[menu_editmode.pos].deselect();
 
@@ -235,19 +248,19 @@ static void editmode_handler(void)
 		menu_editmode.pos++;
 		if (! menu_editmode.items[menu_editmode.pos].set)
 			menu_editmode.pos = 0;
-		menu_editmode.items[menu_editmode.pos].select();
+			menu_editmode.items[menu_editmode.pos].select();
 
-	} else if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_UP)) {
-		menu_editmode.items[menu_editmode.pos].set(1);
+		} else if (ports_button_pressed(PORTS_BTN_UP, 0)) {
+			menu_editmode.items[menu_editmode.pos].set(1);
 
-	} else if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_DOWN)) {
-		menu_editmode.items[menu_editmode.pos].set(-1);
+		} else if (ports_button_pressed(PORTS_BTN_DOWN, 0)) {
+			menu_editmode.items[menu_editmode.pos].set(-1);
 	}
 }
 
 static void menumode_handler(void)
 {
-	if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_STAR)) {
+	if (ports_button_pressed(PORTS_BTN_STAR, 0)) {
 		/* exit mode mode */
 		menumode.enabled = 0;
 
@@ -266,11 +279,11 @@ static void menumode_handler(void)
 		if (menumode.item->activate_fn)
 			menumode.item->activate_fn();
 
-	} else if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_UP)) {
+	} else if (ports_button_pressed(PORTS_BTN_UP, 0)) {
 		menumode.item = menumode.item->next;
 		display_chars(0, LCD_SEG_L2_4_0, menumode.item->name, SEG_SET);
 
-	} else if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_DOWN)) {
+	} else if (ports_button_pressed(PORTS_BTN_DOWN, 0)) {
 		menumode.item = menumode.item->prev;
 		display_chars(0, LCD_SEG_L2_4_0, menumode.item->name, SEG_SET);
 	}
@@ -299,6 +312,13 @@ static void menumode_enable(void)
 
 static void check_buttons(void)
 {
+#ifdef CONFIG_DEBUG_EASY_RESET
+	/* if up and down is pressed then resets the watch */
+	if (ports_button_pressed(PORTS_BTN_UP | PORTS_BTN_DOWN, 0))
+	{
+		WDTCTL = 0; // Forces a reset since a write to WDTCTL isn't allowed without the password.
+	}
+#endif
 	if (menu_editmode.enabled) {
 		editmode_handler();
 
@@ -306,36 +326,36 @@ static void check_buttons(void)
 		menumode_handler();
 
 	} else {
-		if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_LSTAR)) {
+		if (ports_button_pressed(PORTS_BTN_LSTAR, 1)) {
 			if (menumode.item->lstar_btn_fn)
 				menumode.item->lstar_btn_fn();
 
-		} else if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_STAR)) {
+		} else if (ports_button_pressed(PORTS_BTN_STAR, !!(menumode.item->lstar_btn_fn))) {
 			menumode_enable();
 
-		} else if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_LNUM)) {
+		} else if (ports_button_pressed(PORTS_BTN_LNUM, 1)) {
 			if (menumode.item->lnum_btn_fn)
 				menumode.item->lnum_btn_fn();
 
-		} else if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_NUM)) {
+		} else if (ports_button_pressed(PORTS_BTN_NUM, !!(menumode.item->lnum_btn_fn))) {
 			if (menumode.item->num_btn_fn)
 				menumode.item->num_btn_fn();
 
-		} else if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_UP | PORTS_BTN_DOWN)) {
+		} else if (ports_button_pressed(PORTS_BTN_UP | PORTS_BTN_DOWN, 0)) {
 			if (menumode.item->updown_btn_fn)
 				menumode.item->updown_btn_fn();
 
-		} else if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_UP)) {
+		} else if (ports_button_pressed(PORTS_BTN_UP, 0)) {
 			if (menumode.item->up_btn_fn)
 				menumode.item->up_btn_fn();
 
-		} else if (BIT_IS_SET(ports_pressed_btns, PORTS_BTN_DOWN)) {
+		} else if (ports_button_pressed(PORTS_BTN_DOWN, 0)) {
 			if (menumode.item->down_btn_fn)
 				menumode.item->down_btn_fn();
 		}
 	}
 
-	ports_pressed_btns = 0;
+	ports_buttons_clear();
 }
 
 void menu_add_entry(char const * name,
@@ -413,53 +433,6 @@ void init_application(void)
 #endif
 
 	// ---------------------------------------------------------------------
-	// Configure PMM
-	SetVCore(3);
-
-	// Set global high power request enable
-	PMMCTL0_H  = 0xA5;
-	PMMCTL0_L |= PMMHPMRE;
-	PMMCTL0_H  = 0x00;
-
-	// ---------------------------------------------------------------------
-	// Enable 32kHz ACLK
-	P5SEL |= 0x03;                            // Select XIN, XOUT on P5.0 and P5.1
-	UCSCTL6 &= ~XT1OFF;        				  // XT1 On, Highest drive strength
-	UCSCTL6 |= XCAP_3;                        // Internal load cap
-
-	UCSCTL3 = SELA__XT1CLK;                   // Select XT1 as FLL reference
-	UCSCTL4 = SELA__XT1CLK | SELS__DCOCLKDIV | SELM__DCOCLKDIV;
-
-	// ---------------------------------------------------------------------
-	// Configure CPU clock for 12MHz
-	_BIS_SR(SCG0);                  // Disable the FLL control loop
-	UCSCTL0 = 0x0000;          // Set lowest possible DCOx, MODx
-	UCSCTL1 = DCORSEL_5;       // Select suitable range
-	UCSCTL2 = FLLD_1 + 0x16E;  // Set DCO Multiplier
-	_BIC_SR(SCG0);                  // Enable the FLL control loop
-
-	// Worst-case settling time for the DCO when the DCO range bits have been
-	// changed is n x 32 x 32 x f_MCLK / f_FLL_reference. See UCS chapter in 5xx
-	// UG for optimization.
-	// 32 x 32 x 8 MHz / 32,768 Hz = 250000 = MCLK cycles for DCO to settle
-#if __GNUC_MINOR__ > 5 || __GNUC_PATCHLEVEL__ > 8
-	__delay_cycles(250000);
-#else
-	__delay_cycles(62500);
-        __delay_cycles(62500);
-        __delay_cycles(62500);
-        __delay_cycles(62500);
-#endif
-
-	// Loop until XT1 & DCO stabilizes, use do-while to insure that
-	// body is executed at least once
-	do {
-		UCSCTL7 &= ~(XT2OFFG + XT1LFOFFG + XT1HFOFFG + DCOFFG);
-		SFRIFG1 &= ~OFIFG;                      // Clear fault flags
-	} while ((SFRIFG1 & OFIFG));
-
-
-	// ---------------------------------------------------------------------
 	// Configure port mapping
 
 	// Disable all interrupts
@@ -506,10 +479,6 @@ void init_application(void)
 #else
 	as_disconnect();
 #endif
-
-	// ---------------------------------------------------------------------
-	// Init LCD
-	lcd_init();
 
 	// ---------------------------------------------------------------------
 	// Init buttons
@@ -593,6 +562,15 @@ int main(void)
  **************************************************************************/
 void helpers_loop(uint8_t *value, uint8_t lower, uint8_t upper, int8_t step)
 {
+	/* Ensure that initial value is between lower and upper interval */
+	if (*value > upper) {
+		*value = upper;
+	}
+	if (*value < lower) {
+		*value = lower;
+	}
+
+
 	/* for now only increase/decrease on steps of 1 value */
 	if (step > 0) {
 		/* prevent overflow */
@@ -602,7 +580,8 @@ void helpers_loop(uint8_t *value, uint8_t lower, uint8_t upper, int8_t step)
 		}
 
 		(*value)++;
-		if(*value -1 == upper)
+
+		if(*value - 1 == upper)
 			*value = lower;
 	} else {
 		/* prevent overflow */
@@ -612,7 +591,7 @@ void helpers_loop(uint8_t *value, uint8_t lower, uint8_t upper, int8_t step)
 		}
 
 		(*value)--;
-		if(*value +1 == lower)
+		if(*value + 1 == lower)
 			*value = upper;
 	}
 }
